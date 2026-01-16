@@ -1,0 +1,141 @@
+%YAML 1.1
+---
+# ============================================================================
+# CONFIGURACIÓN SURICATA - ARQUITECTURA IOMT (HOST-BASED IPS)
+# Proyecto Diplomado CyberOps - Grupo 3
+# ============================================================================
+
+# 1. RED Y VARIABLES
+vars:
+  address-groups:
+    # La IP de tu servidor IoMT (Defendiendo la red local)
+    HOME_NET: "[192.168.1.17, 127.0.0.1]"
+    # Todo lo demás es hostil
+    EXTERNAL_NET: "!$HOME_NET"
+    # Servidores Web (Simulador IoMT corre en puerto 5000)
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+
+  port-groups:
+    HTTP_PORTS: "80, 5000"  # Agregamos el puerto 5000 del simulador
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+
+# 2. SISTEMA DE LOGS (Salidas para el script Python SOAR)
+outputs:
+  - fast:
+      enabled: yes
+      filename: fast.log
+      append: yes
+
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      # Configuración optimizada para parsing en tiempo real
+      types:
+        - alert:
+            payload: yes             # Guardar el payload para análisis forense
+            payload-buffer-size: 4kb 
+            payload-printable: yes   # Vital para ver el contenido SQL injection
+            packet: yes
+            http: yes
+            tls: yes
+            ssh: yes
+            smtp: yes
+
+# 3. MODO DE CAPTURA (IPS / NFQUEUE)
+# Esto es lo que permite detener ataques "en el aire"
+nfq:
+  mode: accept
+  repeat-mark: 1
+  repeat-mask: 1
+  route-queue: 2
+  # Cola 0 es la que definimos en el script setup_network.sh
+  queue:
+    - 0
+
+# 4. RUTAS DE REGLAS
+default-rule-path: /etc/suricata/rules
+rule-files:
+  - local.rules  # Nuestras reglas personalizadas IoMT
+
+# 5. AJUSTES DE RENDIMIENTO (Optimizado para VM con recursos limitados)
+detect:
+  profile: medium
+  custom-values:
+    toclient-groups: 3
+    toserver-groups: 3
+  sgh-mpm-context: auto
+  inspection-recursion-limit: 3000
+
+threading:
+  set-cpu-affinity: no
+  detect-thread-ratio: 1.0
+
+vlan:
+  use-for-tracking: true
+
+host-os-policy:
+  windows: [0.0.0.0/0]
+  bsd: []
+  bsd-right: []
+  old-linux: []
+  linux: []
+  old-solaris: []
+  solaris: []
+  hpux10: []
+  hpux11: []
+  irix: []
+  macos: []
+  vista: []
+  windows2k3: []
+
+app-layer:
+  protocols:
+    http:
+      enabled: yes
+      memcap: 64mb
+    tls:
+      enabled: yes
+      detect-ports: 443
+    smtp:
+      enabled: yes
+    ssh:
+      enabled: yes
+    imap:
+      enabled: yes
+    smb:
+      enabled: yes
+    dns:
+      tcp:
+        enabled: yes
+        detection-ports: 53
+      udp:
+        enabled: yes
+        detection-ports: 53
+    modbus:
+      enabled: no
+    dnp3:
+      enabled: no
+    enip:
+      enabled: no

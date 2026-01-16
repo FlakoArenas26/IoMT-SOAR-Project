@@ -1,0 +1,18 @@
+# --- ARQUITECTURA DE DEFENSA IOMT (Suricata Rules) ---
+
+# 1. REGLAS IPS (Modo Estricto - Data Loss Prevention)
+# Objetivo: Evitar exfiltración de datos de pacientes en Puerto 5000.
+# Acción: Drop inmediato (El paquete se elimina, el atacante recibe Timeout).
+drop tcp any any -> any 5000 (msg:"ALERTA CRITICA - SQL Injection DETENIDO"; content:"'"; sid:10001; rev:10;)
+drop tcp any any -> any 5000 (msg:"ALERTA CRITICA - SQL Injection DETENIDO"; content:"OR"; nocase; sid:10002; rev:10;)
+drop tcp any any -> any 5000 (msg:"ALERTA CRITICA - SQL Injection DETENIDO"; content:"%27"; sid:10003; rev:10;)
+
+# 2. REGLAS IDS + SOAR (Modo Comportamiento)
+# Objetivo: Detectar intrusiones persistentes (SSH y Escaneos).
+# Acción: Alertar -> Script Python -> Iptables Block.
+
+# Ping Flood: Permite 5 pings en 10 segundos, alerta si supera.
+alert icmp any any -> any any (msg:"ALERTA CRITICA - Ping Detectado"; threshold: type both, track by_src, count 5, seconds 10; sid:10004; rev:5;)
+
+# Fuerza Bruta SSH: Permite 5 intentos en 20 segundos.
+alert tcp any any -> any 22 (msg:"ALERTA CRITICA - Intento de Fuerza Bruta SSH"; flags:S; threshold: type both, track by_src, count 5, seconds 20; sid:10005; rev:5;)
